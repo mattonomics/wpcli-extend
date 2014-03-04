@@ -7,7 +7,7 @@ Author: Matt Gross
 Author URI: http://mattonomics.com
 Plugin URI: http://mattonomics.com
 Text Domain: wpcli_ext
-Domain Path: /languages
+License: GPLv2
 */
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {
