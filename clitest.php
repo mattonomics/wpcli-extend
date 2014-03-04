@@ -16,6 +16,7 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 		
 		public function resalt() {
 			WP_CLI::line( __( 'Fetching the new keys…', 'wpcli_ext' ) );
+			
 			$response = wp_remote_get('https://api.wordpress.org/secret-key/1.1/salt/');
 			
 			if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
