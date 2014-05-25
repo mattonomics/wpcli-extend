@@ -24,14 +24,14 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 				return false;
 			}
 			
-			$new_keys = trim( wp_remote_retrieve_body( $response ) );
-			$new_keys_array = explode( "\n", $new_keys );
+			$new_keys 			= trim( wp_remote_retrieve_body( $response ) );
+			$new_keys_array 	= explode( "\n", $new_keys );
 			
-			$wp_config = trailingslashit( ABSPATH ) . 'wp-config.php';
-			$current_file = trim( file_get_contents( $wp_config ) );
-			$current_file_array = explode( "\n", $current_file );
+			$wp_config 			= trailingslashit( ABSPATH ) . 'wp-config.php';
+			$current_file 		= trim( file_get_contents( $wp_config ) );
+			$current_file_array	= explode( "\n", $current_file );
 			
-			$definitions = implode( '|', array(
+			$definitions 		= implode( '|', array(
 				'AUTH_KEY', 'SECURE_AUTH_KEY', 'LOGGED_IN_KEY', 'NONCE_KEY', 'AUTH_SALT', 'SECURE_AUTH_SALT', 'LOGGED_IN_SALT', 'NONCE_SALT'
 			) );
 			
@@ -48,12 +48,84 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			
 			if ( empty( $new_keys_array ) ) {
 				if ( file_put_contents( $wp_config, implode( "\n", $new_file_array ) ) ) {
-					// say something with cli
 					WP_CLI::success( __( 'New salts added!', 'wpcli_ext' ) );
 				}
 			} else {
 				WP_CLI::error( __( 'Failed to add new salts.', 'wpcli_ext' ) );
 			}
+		}
+		
+		/**
+	     * Resets the database and preserves settings.
+	     * 
+	     * ## OPTIONS
+	     * 
+	     * [--preserve_plugins]
+	     * : Set this to preserve the currently activated plugins.
+		 *
+	     * [--admin_user=admin]
+	     * : The admin's username.
+		 *
+		 * [--admin_password=password]
+	     * : The admin's password.
+		 *
+		 * [--permalink_structure=/%postname%/]
+	     * : Permalink structure.
+		 *
+	     * ## EXAMPLES
+	     * 
+	     * wp extend reset --preserve_plugins
+	     *
+	     * @synopsis [--preserve_plugins]
+	     */
+		
+		public function reset( $args, $flags ) {
+			
+			WP_CLI::confirm( 'Are you sure you want to reset the database?' );
+			
+			$options = array(
+				'--url=' . site_url(),
+				'--title=' . str_replace( ' ', '\ ', get_option( 'blogname' ) ),
+				'--admin_user=' . ( !empty( $flags['admin_user'] ) ? $flags['admin_user'] : 'admin' ),
+				'--admin_password=' . ( !empty( $flags['admin_password'] ) ? $flags['admin_password'] : 'password' ),
+				'--admin_email=' . get_option( 'admin_email' )
+			);
+			
+			$activated = array();
+			if ( isset( $flags['preserve_plugins'] ) ) {
+				foreach ( get_option( 'active_plugins' ) as $plugin ) {
+					$plugin_name = explode( '/', $plugin );
+					$plugin_name = array_shift( $plugin_name );
+					if ( strpos( $plugin_name, '.' ) !== false) {
+						$plugin_name = explode( '.', $plugin_name );
+						array_pop( $plugin_name );
+						$activated[] = implode( '', $plugin_name );
+					} else {
+						$activated[] = $plugin_name;
+					}
+				}
+			}
+			
+			$permalinks = '/%postname%/';
+			if ( !empty( $flags['permalink_structure'] ) ) {
+				$permalinks = $flags['permalink_structure'];
+			}
+			
+			WP_CLI::launch( 'wp db reset --yes' );
+			
+			WP_CLI::launch( 'wp core install ' . implode( ' ', $options ) );
+			
+			WP_CLI::launch( "wp option update permalink_structure $permalinks" );
+			
+			flush_rewrite_rules();
+			
+			if ( !empty( $activated ) ) {
+				foreach ( $activated as $activate ) {
+					WP_CLI::launch( "wp plugin activate $activate" );
+				}
+			}
+			
+			WP_CLI::success( 'Database has been reset.' );
 		}
 	}
 
